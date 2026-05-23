@@ -1,3 +1,5 @@
+import pytest
+
 from shared.models.board import Board
 from shared.models.piece import Piece
 
@@ -6,7 +8,16 @@ def test_board_set_piece():
     b.set_piece(3, 4, Piece("knight", "white"))
 
     assert b.get_piece(3, 4).piece_type == "knight"
-    assert b.get_piece(-1, 5) is False
+
+    # фигуры поставлены не туда
+    with pytest.raises(IndexError):
+        assert b.get_piece(-1, 5)
+
+    with pytest.raises(IndexError):
+        assert b.get_piece(15, 5)
+
+    with pytest.raises(IndexError):
+        assert b.get_piece(0, 15)    
 
 def test_copy():
     b = Board()
