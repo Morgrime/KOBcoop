@@ -2,6 +2,16 @@ import asyncio
 import websockets
 import json
 import logging
+import sys
+from pathlib import Path
+
+# Добавляем корень проекта в sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Теперь импорты будут работать
+from shared.models.board import Board
+from shared.models.piece import Piece
+from shared.rules import validate_rook_move
 
 logging.basicConfig(
     level=logging.INFO,
@@ -10,6 +20,8 @@ logging.basicConfig(
 )
 
 connected_clients = set()
+game_board = Board()
+game_board.set_piece(4, 5, Piece("rook", "black"))
 
 
 async def handler(websocket):
@@ -23,9 +35,34 @@ async def handler(websocket):
                 data = json.loads(message)
                 logging.info(f"Получено: {data}")
 
-                # Пока эхо ответ, потом валидация будет
-                response = {"status": "ok", "received_type": data.get("type")}
-                await websocket.send(json.dumps(response))
+                # Кто ходил и их время
+                data["sender_id"] = id(websocket)
+
+                if data["type"] == "move":
+                    try:
+                        from_pos = tuple(data["from_pos"],)
+                        to_pos = tuple(data["to_pos"],)
+                        color = data["color"]
+                    except KeyError:
+                        # Отправка только клиенту
+                        await websocket.send(json.dumps({"status": "invalid_move", "msg": "Не хватает полей"}))
+                        continue
+
+                    if validate_rook_move(game_board, from_pos, to_pos, color):
+                        game_board.apply_move(
+                            data["from_pos"],
+                            data["to_pos"]
+                        )
+                        if connected_clients:
+                            await asyncio.gather(
+                                *[c.send(json.dumps(data)) for c in connected_clients],
+                                return_exceptions=True,
+                            )
+
+                    else:
+                        # Отправка только клиенту
+                        await websocket.send(json.dumps({"status": "invalid_move", "msg": "Ход запрещен правилами"}))
+                        continue
 
             except json.JSONDecodeError:
                 logging.warning("Пришла некорректная json строка")
