@@ -23,6 +23,7 @@ connected_clients = set()
 game_board = Board()
 current_turn = "white"
 game_board.set_piece(4, 5, Piece("rook", "black"))
+game_board.set_piece(3, 5, Piece("rook", "white"))
 
 
 async def handler(websocket):

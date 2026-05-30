@@ -16,13 +16,16 @@ async def receiver(ws, player_name):
 
             if msg_type == "state_update":
                 current_board = Board.from_dict(data["board"])
+
             elif msg_type == "move":
                 current_board.apply_move(tuple(data["from_pos"]), tuple(data["to_pos"]))
-            elif msg_type == "invalid_move" or data.get("status") == "invalid move":
-                print(f"\n {data.get('msg', 'Неверный ход')}")
+
+            elif msg_type == "invalid_move" or data.get("status") == "invalid_move":
+                print(f"\n {data.get('msg', 'Неверный ход')}", file=sys.stderr)
                 continue
+
             elif data.get("status") == "error":
-                print(f"\n {data.get('msg')}")
+                print(f"\n {data.get('msg')}", file=sys.stderr)
                 continue
 
             draw_screen(current_board, player_name)
