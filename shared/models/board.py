@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import Optional, List
 from copy import deepcopy
 from .piece import Piece
@@ -66,3 +67,26 @@ class Board:
         self.set_piece(*to_pos, piece)
         if piece:
             piece.has_moved = True
+
+    def to_dict(self) -> dict:
+        """
+        Заворачивание состояния доски в json чтобы отображать при подключении
+        """
+        grid = []
+        for row in self.grid:
+            grid.append([asdict(cell) if cell else None for cell in row])
+        return {"grid": grid}
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "Board":
+        """
+        Создание доски из JSON
+        """
+        board = cls()
+        grid_data = data["grid"]
+        for r, row in enumerate(grid_data):
+            for c, cell in enumerate(row):
+                if cell is not None:
+                    board.set_piece(r, c, Piece(**cell))
+
+        return board

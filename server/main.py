@@ -21,12 +21,19 @@ logging.basicConfig(
 
 connected_clients = set()
 game_board = Board()
+current_turn = "white"
 game_board.set_piece(4, 5, Piece("rook", "black"))
 
 
 async def handler(websocket):
+    global current_turn
     connected_clients.add(websocket)
     logging.info(f"Клиент подключился. Всего {len(connected_clients)}")
+
+    await websocket.send(json.dumps({
+        "type": "state_update",
+        "board": game_board.to_dict()
+    }))
 
     try:
         async for message in websocket:
@@ -42,17 +49,23 @@ async def handler(websocket):
                     try:
                         from_pos = tuple(data["from_pos"],)
                         to_pos = tuple(data["to_pos"],)
-                        color = data["color"]
+
                     except KeyError:
                         # Отправка только клиенту
                         await websocket.send(json.dumps({"status": "invalid_move", "msg": "Не хватает полей"}))
                         continue
 
-                    if validate_rook_move(game_board, from_pos, to_pos, color):
+                    if validate_rook_move(game_board, from_pos, to_pos, current_turn):
                         game_board.apply_move(
-                            data["from_pos"],
-                            data["to_pos"]
+                            from_pos,
+                            to_pos
+                            # data["from_pos"],
+                            # data["to_pos"]
                         )
+                        
+                        current_turn == "black" if current_turn == "white" else "white"
+                        data["current_turn"] = current_turn
+
                         if connected_clients:
                             await asyncio.gather(
                                 *[c.send(json.dumps(data)) for c in connected_clients],

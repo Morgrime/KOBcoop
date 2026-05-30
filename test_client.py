@@ -3,15 +3,30 @@ import asyncio
 import websockets
 import json
 import sys
+from shared.models.board import Board
 
 async def receiver(ws, player_name):
     """Фоновая задача: слушает сервер и выводит сообщения"""
+    current_board = Board()
+
     try:
         async for message in ws:
             data = json.loads(message)
-            sender = data.get("sender_id")
-            print(f"\n[{player_name}] 📥 От сервера: {data}")
-            print(f"[{player_name}] 🎮 Твой ход > ", end="", flush=True)
+            msg_type = data.get("type")
+
+            if msg_type == "state_update":
+                current_board = Board.from_dict(data["board"])
+            elif msg_type == "move":
+                current_board.apply_move(tuple(data["from_pos"]), tuple(data["to_pos"]))
+            elif msg_type == "invalid_move" or data.get("status") == "invalid move":
+                print(f"\n {data.get('msg', 'Неверный ход')}")
+                continue
+            elif data.get("status") == "error":
+                print(f"\n {data.get('msg')}")
+                continue
+
+            draw_screen(current_board, player_name)
+
     except websockets.exceptions.ConnectionClosed:
         print(f"\n[{player_name}] 🔌 Соединение закрыто")
 
@@ -33,6 +48,15 @@ async def sender(ws, player_name):
             data = {"type": "raw", "content": msg}
         await ws.send(json.dumps(data))
         print(f"[{player_name}] 📤 Отправлено: {data}")
+
+def draw_screen(board: Board, player_name: str):
+    # \033[2J очищает экран, \033[H возвращает курсор в левый верхний угол
+    print("\033[2J\033[H", end="")
+    print(f"Игрок: {player_name}\n")
+    print(board.display())
+    print("\nФормат хода: {\"type\": \"move\", \"from_pos\": [r,c], \"to_pos\": [r,c], \"color\": \"...\"}")
+    print("Твой ход > ", end="", flush=True)
+
 
 async def main():
     uri = "ws://localhost:8765"
